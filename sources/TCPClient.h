@@ -12,8 +12,10 @@
 #include <pthread.h>
 #include <iostream>
 #include <vector>
-#include <ThreadPool.h>
 #include <string>
+#include <atomic>
+#include <mutex>
+#include <future>
 
 #pragma region include for networking
     #include <sys/types.h>
@@ -27,11 +29,10 @@
     #include <sys/ioctl.h>
     #include <signal.h>
 #pragma endregion
-#include <ThreadPool.h>
 
+using namespace std;
 namespace TCPClientLib
 {
-    using namespace std;
 
     enum CONN_EVENT{CONNECTED, DISCONNECTED};
 

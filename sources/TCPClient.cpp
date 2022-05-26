@@ -76,7 +76,6 @@ void TCPClientLib::TCPClient::notifyListeners_connEvent(CONN_EVENT action)
 	}
 }
 
-
 future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 {
 	//create an socket to await for connections
