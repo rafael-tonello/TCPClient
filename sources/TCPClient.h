@@ -47,6 +47,7 @@ namespace TCPClientLib
             int listenersIdCounter = 0;
 
             atomic<bool> running;
+            mutex waitUntilDisconnectMutex;
             map<int, function<void(TCPClient *client, char* data,  size_t size)>> receiveListeners;
             map<int, function<void(TCPClient *client, string data)>> receiveListeners_s;
 
@@ -57,6 +58,9 @@ namespace TCPClientLib
             bool SocketIsConnected(int socket);
             void debug(string msg){cout << "Debug: " << msg << endl;}
             bool SetSocketBlockingEnabled(int fd, bool blocking);
+
+
+
         public:
             map<string, string> tags;
 
@@ -75,6 +79,8 @@ namespace TCPClientLib
             void removeListener_s(int id);
             int addConEventListener(function<void(TCPClient *client, CONN_EVENT event)> onConEvent);
             void removeConEventListener(int id);
+
+            future<void> waitUntilDisconnect();
 
             
 

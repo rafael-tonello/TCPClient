@@ -99,6 +99,7 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 				int cli_fd;
 				if ((cli_fd = connect(socketHandle, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) >= 0) 
 				{
+					waitUntilDisconnectMutex.lock();
 					prom->set_value(true);
 					this->notifyListeners_connEvent(CONN_EVENT::CONNECTED);
 					int bufferSize = _CONF_READ_BUFFER_SIZE;
@@ -134,6 +135,11 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 							this->notifyListeners_connEvent(CONN_EVENT::DISCONNECTED);
 						}
 					}
+
+					if (isConnected())
+						this->disconnect();
+
+					waitUntilDisconnectMutex.unlock();
 					
 				}
 				else
@@ -236,4 +242,17 @@ bool TCPClientLib::TCPClient::SetSocketBlockingEnabled(int fd, bool blocking)
 		flags = blocking ? (flags&~O_NONBLOCK) : (flags|O_NONBLOCK);
 		return (fcntl(fd, F_SETFL, flags) == 0) ? true : false;
 	#endif
+}
+
+future<void> TCPClientLib::TCPClient::waitUntilDisconnect()
+{
+	shared_ptr<promise<void>> prom = shared_ptr<promise<void>>(new promise<void>);
+	thread th([&](shared_ptr<promise<void>> prom_){
+		waitUntilDisconnectMutex.lock();
+		waitUntilDisconnectMutex.unlock();
+		prom_->set_value();
+	}, prom);
+	th.detach();
+
+	return prom->get_future();
 }

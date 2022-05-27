@@ -1,117 +1,189 @@
-# Event TCPServer Library
-Thi is an event based TCP Server. This server do not use async I/O yet or LibEvent. I wrote this code to be compiled in a system that does't support LibEvent.
+# Event TCPClient Library
+Thi is an event based TCP Client. This client do not use async I/O yet or LibEvent. I wrote this code to be compiled in a system that does't support LibEvent.
 
 # Using
 To Use this library, you can copy the .cpp and .h files to your project or add this repository as a submodule of your project.
 
-# Where is the main.cpp?
-This project is a library, so I don't provide a main file to test it. Instead, I wrote a projet to do unity tests in the classes and function.
-You can enter in the folder 'tests' and run the command 'make all'. After run this command, a file located in tests/build, named 'tests', will
-be generated. This file (tests/build/tests) is a binary file that run some tests. 
-
 Along with this code, there is a ".vscode" folder that contains some configurations for the Visual Studio Code. If you use VSCode, you can compile the tests program direclty from the 'Debug' section of this IDE.
 
-# dependencies
-This library depends of a thread pool libraty, that was written by me. If you make a recursive git clone of this project, you shouldn't have problema with this dependency. But if you choose to clone allow the repository, you should also clone this thread pool library and adjust the include int the 'TCPServer.h' file.
+# How to use
 
-The trhead pool library is in: https://github.com/rafinhatonello/ThreadPool
+To use this TCPClient, take a look in the examples bellow
 
-# Using
 
-See some examples of how you can use this library.
 
+## Connecting to a server and send data to it
 ```c++
-#include <iostream>
-#include "libs/TCPServer/sources/TCPServer.h"
+//include the library header
+#include <TCPClient.h>
 
-using namespace std;
-using namespace TCPServerLib;
-void startMyServer(){
+int main()
+{
+    //declaring a client object
+    TCPClientLib::TCPClient cli;
+    
+    //connecting to the server. The connectToServer method returns an future<bool>. So you can wait from the connection. The future result represents a sucess of failure connetion
+    if (cli.connectToServer("127.0.0.1", 8085).get())
+    {
+        //sending data to the server
+        char *data = "this is a test data";
+        cli.sendData(data, 19);
 
-    //starts the server
-    TCPServer server(5000);
-
-    //you can also specify a list of ports to the server listen:
-    //  TCPServer server({5000, 5001, 5002, 5003, 5004});
-
-
-
-    //add an event (a lambda function) to know when clients connects or
-    //disconnects from your server
-    server.addConEventListeners([](ClientInfo *client, CONN_EVENT event){
-        if (event == CONN_EVENT::CONNECTED)
-            cout << "A client was connect in the server" << endl;
-        else
-            cout << "A client was disconnect in the server" << endl;
-    });
-
-    //add an event to be called when some data cames from the client
-    server.addReceiveListener([&server](ClientInfo* client, char* data, size_t size){
-        cout << "Received from client "<< string(data, size) << endl;
-
-        //send a response to the client
-        string msg = "OK, I received your data";
-        server.send(client, msg.c_str(), msg.size());
-
-        //you can also use directly the client object to send the response
-        client->send(msg.c_str(), msg.size());
-    });
-
-    //add an event to be called when some data cames from the client. Is
-    //very similiar to addReceiveListener method, but this receives the
-    //data as a string
-    //
-    //OBS: addReceiveListener_s is executed after addReceiveListener (both
-    // on the ClientInfo and TCPServer objects)
-    server.addReceiveListener_s([](ClientInfo* client, string data){
-        cout << "Received from client "<< data << endl;
-
-        //you can also send a response as a string to the client
-        server.sendString(client, "OK, I received your data");
-
-        //again: you can also use directly the client object to send the response
-        client->sendString(client, "OK, I received your data");
-
-        //you can disconnect your client:
-        server.disconnect(client);
-    });
+        //closing the connection
+        cli.disconnect();
+    }
+    else
+    {
+        cerr << "Could't connect to the server" << endl;
+        return 1;
+    }
+    return 0;
 }
 ```
 
-Bellow, you can see an example using directly the ClientInfo object, and user the TCPServer object just to handle the incoming clients
+## using a help function to send string
+In the TCPCLient class there is a helper funcion that failitates the string sending to the server.
+```c++
+#include <TCPClient.h>
+
+int main()
+{
+    TCPClientLib::TCPClient cli;
+    
+    //connecting to the server. 
+    if (cli.connectToServer("127.0.0.1", 8085).get())
+    {
+        //sending data to the server
+        cli.sendString("Hey server! Take this string");
+
+        cli.disconnect();
+    }
+    else
+    {
+        cerr << "Could't connect to the server" << endl;
+        return 1;
+    }
+
+    return 0;
+}
+```
+
+## looping until is connect to the server
+You can use the method 'isConnected' to know if the connection to the server is ok
 
 ```c++
-#include <iostream>
-#include "libs/TCPServer/sources/TCPServer.h"
 
-using namespace std;
-using namespace TCPServerLib;
-void startMyServer(){
-
-    //starts the server
-    TCPServer server({5000, 5001});
-
-
-
-    //add an event (a lambda function) to know when clients connects or
-    //disconnects from your server
-    server.addConEventListeners([](ClientInfo *client, CONN_EVENT event){
-        if (event == CONN_EVENT::CONNECTED)
+#include <TCPClient.h>
+int main()
+{
+    TCPClientLib::TCPClient cli;
+    
+    //connecting to the server. 
+    if (cli.connectToServer("127.0.0.1", 8085).get())
+    {
+        //isConnected returns a boolean value indicating if the client is connect to the client
+        while (cli.isConnected())
         {
-            cout << "A client was connect in the server" << endl;
-            client->addReceiveListener_s([](ClientInfo* clientp2, string data){
-                cout << "Received from client the data: " << data << endl;
-                clientp2->sendString("Ok, I received your data");
-
-                //you can disconnect the client
-                clientp2->disconnect();
-            });
+            //do somethings while is connected to the !server
+            cli.sendString("Hey server! I'm still here!");
+            usleep(1000000);
         }
-        else
-            cout << "A client was disconnect in the server" << endl;
-    });
+    }
+    else
+    {
+        cerr << "Could't connect to the server" << endl;
+        return 1;
+    }
+    return 0;
 }
 ```
+
+## You can also use the method "waitUntilDisconnect" to wait
+
+```c++
+#include <TCPClient.h>
+int main()
+{
+    TCPClientLib::TCPClient cli;
+    
+    //connecting to the server. 
+    if (cli.connectToServer("127.0.0.1", 8085).get())
+    {
+        //waitUntilDisconnect returns a future that is set when the conneciton to the server is lost or finished
+        cli.waitUntilDisconnect().get();
+        cout << "exiting" << endl;
+    }
+    else
+    {
+        cerr << "Could't connect to the server" << endl;
+        return 1;
+    }
+
+    return 0;
+}
+```
+
+## receiving data from the server
+To receive data from the server, the TCPLib class you just need to informa a function to receive the data
+
+```c++
+#include <TCPClient.h>
+int main()
+{
+    TCPClientLib::TCPClient cli;
+
+    //seting a function to receive incoming data
+    cli.addReceiveListener([&](TCPClientLib::TCPClient *cli, char* data, size_t size){
+        cout << "Received from server: ";
+        for (size_t c = 0; c < size; c++)
+            cout << data[c];
+
+        cout << endl;
+    });
+    
+    //connecting to the server and wait until disconnected
+    if (cli.connectToServer("127.0.0.1", 8085).get())
+        cli.waitUntilDisconnect().get();
+    else
+    {
+        cerr << "Could't connect to the server" << endl;
+        return 1;
+    }
+    return 0
+}
+```
+
+## and yes, the lib have a helper function to receive strings from the server
+
+```c++
+#include <string>
+#include <TCPClient.h>
+
+int main()
+{
+    TCPClientLib::TCPClient cli;
+
+    //seting a function to receive incoming data as string
+    cli.addReceiveListener_s([&](TCPClientLib::TCPClient *cli, std::string data){
+        cout << "Received from server: " << data << endl;
+    });
+    
+    
+    //connecting to the server and wait until disconnected
+    if (cli.connectToServer("127.0.0.1", 8085).get())
+        cli.waitUntilDisconnect().get();
+    else
+    {
+        cerr << "Could't connect to the server" << endl;
+        return 1;
+    }
+
+    return 0;
+}
+
+```
+
+
 
 # Main task List
 charaters to be used ✔ ✘

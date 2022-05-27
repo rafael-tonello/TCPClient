@@ -8,7 +8,22 @@
 #include <TCPClient.h>
 
 using namespace std;
-int main(int argc, char* argv[]){
+int main()
+{
+    TCPClientLib::TCPClient cli;
+
+    cli.addReceiveListener_s([&](TCPClientLib::TCPClient *cli, string data){
+        cout << "Received from server: " << data << endl;
+    });
+    
+    //connecting to the server. 
+    if (cli.connectToServer("127.0.0.1", 8085).get())
+        cli.waitUntilDisconnect().get();
+    else
+        cerr << "Could't connect to the server" << endl;
+}
+
+int main3(int argc, char* argv[]){
     TCPClientLib::TCPClient cli;
     
 
