@@ -146,18 +146,21 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 				{
 					this->debug("Connection failed");
 					prom->set_value(false);
+					this->notifyListeners_connEvent(CONN_EVENT::DISCONNECTED);
 				}
 			}
 			else
 			{
 				this->debug("Invalid address");
 				prom->set_value(false);
+				this->notifyListeners_connEvent(CONN_EVENT::DISCONNECTED);
 			}
 		}
 		else
 		{
 			this->debug("General error opening socket");
 			prom->set_value(false);
+			this->notifyListeners_connEvent(CONN_EVENT::DISCONNECTED);
 		}
 
 		delete prom;
