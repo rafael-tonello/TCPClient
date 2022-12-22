@@ -8,9 +8,7 @@ Along with this code, there is a ".vscode" folder that contains some configurati
 
 # How to use
 
-To use this TCPClient, take a look in the examples bellow
-
-
+To use this TCPClient take a look in the examples bellow.
 
 ## Connecting to a server and send data to it
 ```c++
@@ -156,8 +154,8 @@ int main()
 ## and yes, the lib have a helper function to receive strings from the server
 
 ```c++
-#include <string>
 #include <TCPClient.h>
+#include <string>
 
 int main()
 {

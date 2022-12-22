@@ -86,8 +86,8 @@ namespace TCPClientLib
 
             TCPClient(string server, int port)
             {
-                this->connectToServer(server, port);
                 running = false;
+                this->connectToServer(server, port);
             }
 
             TCPClient(){
