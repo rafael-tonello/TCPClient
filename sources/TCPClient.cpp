@@ -87,10 +87,10 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 	auto th = new thread([&](string server, int port, shared_ptr<promise<bool>> prom){
 
 		socketHandle = socket(AF_INET, SOCK_STREAM, 0);
-		int flag = 1; // Habilita TCP_NODELAY
-		if (setsockopt(socketHandle, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) == -1) {
-			perror("Erro ao configurar TCP_NODELAY");
-		}
+		//int flag = 1; // Habilita TCP_NODELAY
+		//if (setsockopt(socketHandle, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) == -1) {
+		//	perror("Erro ao configurar TCP_NODELAY");
+		//}
 
 		if (socketHandle >= 0)
 		{
@@ -99,17 +99,25 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 			serv_addr.sin_family = AF_INET;
 			serv_addr.sin_port = htons(port);
 
+			int reuse = 1;
+			if (setsockopt(socketHandle, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int)) < 0)
+			{
+				string errorMessage = string("error seting reuseaddr socket option: ") + string(strerror(errno));
+				this->debug(errorMessage);
+			}
+
 			if (inet_pton(AF_INET, server.c_str(), &serv_addr.sin_addr) > 0) 
 			{
-				int flag = 1; // Habilita TCP_NODELAY
+				//int flag = 1; // Habilita TCP_NODELAY
 				// if (setsockopt(socketHandle, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) == -1) {
         			// perror("Erro ao configurar TCP_NODELAY");
     			// }			
 				
 
-				int cli_fd;
-				if ((cli_fd = connect(socketHandle, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) >= 0) 
+				int cli_fd = connect(socketHandle, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+				if (cli_fd >= 0) 
 				{
+					this->running = true;
 
 						
 					waitUntilDisconnectMutex.lock();
@@ -118,7 +126,6 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 					int bufferSize = _CONF_READ_BUFFER_SIZE;
 
 					char readBuffer[bufferSize]; //10k buffer
-					this->running = true;
 					int nextLoopWait = _CONF_DEFAULT_LOOP_WAIT;
 
 					while (this->running)
@@ -158,7 +165,8 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 				}
 				else
 				{
-					this->debug("Connection failed");
+					string errorStr = "Connection failed: " + string(strerror(errno));
+					this->debug(errorStr);
 					prom->set_value(false);
 					this->notifyListeners_connEvent(CONN_EVENT::DISCONNECTED);
 				}
@@ -242,8 +250,8 @@ void TCPClientLib::TCPClient::disconnect()
 
 bool TCPClientLib::TCPClient::isConnected()
 {
-
-	return this->running && this->SocketIsConnected(socketHandle);
+	bool ret = this->running && this->SocketIsConnected(socketHandle);
+	return ret;
 }
 
 bool TCPClientLib::TCPClient::SetSocketBlockingEnabled(int fd, bool blocking)
