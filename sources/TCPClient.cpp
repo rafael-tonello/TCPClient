@@ -4,6 +4,7 @@ int TCPClientLib::TCPClient::addReceiveListener(function<void(TCPClientLib::TCPC
 {
 	int id = listenersIdCounter++;
 	this->receiveListeners[id] = onReceive;
+	this->running = false;
 	return id;
 }
 
@@ -57,7 +58,6 @@ void TCPClientLib::TCPClient::notifyListeners_dataReceived(char* data, size_t si
 	{
 		c.second(this, data, size);
 	}
-
 	for (auto &c: this->receiveListeners_s)
 	{
 		c.second(this, dataAsString);
@@ -80,13 +80,18 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 {
 	//create an socket to await for connections
 
-	promise<bool> *prom_ = new promise<bool>();
+	auto prom_ = shared_ptr<promise<bool>>(new promise<bool>());
 
 	
 	//std::async(std::launch::async, [&](string server, int port, promise<bool> *prom){
-	thread th([&](string server, int port, promise<bool> *prom){
+	auto th = new thread([&](string server, int port, shared_ptr<promise<bool>> prom){
 
 		socketHandle = socket(AF_INET, SOCK_STREAM, 0);
+		int flag = 1; // Habilita TCP_NODELAY
+		if (setsockopt(socketHandle, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) == -1) {
+			perror("Erro ao configurar TCP_NODELAY");
+		}
+
 		if (socketHandle >= 0)
 		{
 			struct sockaddr_in serv_addr;
@@ -96,9 +101,17 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 
 			if (inet_pton(AF_INET, server.c_str(), &serv_addr.sin_addr) > 0) 
 			{
+				int flag = 1; // Habilita TCP_NODELAY
+				// if (setsockopt(socketHandle, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)) == -1) {
+        			// perror("Erro ao configurar TCP_NODELAY");
+    			// }			
+				
+
 				int cli_fd;
 				if ((cli_fd = connect(socketHandle, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) >= 0) 
 				{
+
+						
 					waitUntilDisconnectMutex.lock();
 					prom->set_value(true);
 					this->notifyListeners_connEvent(CONN_EVENT::CONNECTED);
@@ -120,6 +133,7 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 							auto readCount = recv(socketHandle,readBuffer, availableBytes, 0);
 							if (readCount > 0)
 							{
+								nextLoopWait = 0;
 								this->notifyListeners_dataReceived(readBuffer, readCount);
 							}
 
@@ -136,7 +150,7 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 						}
 					}
 
-					if (isConnected())
+					if (this->SocketIsConnected(socketHandle))
 						this->disconnect();
 
 					waitUntilDisconnectMutex.unlock();
@@ -162,11 +176,9 @@ future<bool> TCPClientLib::TCPClient::connectToServer(string server_, int port_)
 			prom->set_value(false);
 			this->notifyListeners_connEvent(CONN_EVENT::DISCONNECTED);
 		}
-
-		delete prom;
 	}, server_, port_, prom_);
 
-	th.detach();
+	th->detach();
 
 	return prom_->get_future();
 }
@@ -205,9 +217,10 @@ void TCPClientLib::TCPClient::sendData(char* data, size_t size)
 { 
 	writeMutex.lock();
 
-	if (SocketIsConnected(socketHandle))
+	if (this->running && SocketIsConnected(socketHandle))
 	{
-		auto bytesWrite = send(socketHandle, data, size, 0);
+		//auto bytesWrite = send(socketHandle, data, size, 0);
+		auto bytesWrite = write(socketHandle, data, size);
 	}
 	else
 		this->debug("Try sendind data to disconnected client");
@@ -229,7 +242,8 @@ void TCPClientLib::TCPClient::disconnect()
 
 bool TCPClientLib::TCPClient::isConnected()
 {
-	return this->SocketIsConnected(socketHandle);
+
+	return this->running && this->SocketIsConnected(socketHandle);
 }
 
 bool TCPClientLib::TCPClient::SetSocketBlockingEnabled(int fd, bool blocking)

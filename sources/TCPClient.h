@@ -16,6 +16,9 @@
 #include <atomic>
 #include <mutex>
 #include <future>
+#include <timersForDebug.h>
+#include <iostream>
+#include <memory>
 
 #pragma region include for networking
     #include <sys/types.h>
@@ -25,6 +28,7 @@
     #include <errno.h>
     #include <netdb.h>
     #include <netinet/in.h>
+    #include <netinet/tcp.h> 
     #include <sys/socket.h>
     #include <sys/ioctl.h>
     #include <signal.h>
